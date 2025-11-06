@@ -1,4 +1,40 @@
-ce(v, dict) and "class_type" in v and "inputs" in v:
+from __future__ import annotations
+
+import os
+import json
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
+
+try:
+    # ComfyUI server glue
+    from aiohttp import web
+    from server import PromptServer
+except Exception:  # pragma: no cover - makes this importable outside Comfy
+    web = None
+    PromptServer = None
+
+
+# Resolve ComfyUI root (this file expected at ComfyUI/custom_nodes/...)
+ROOT = Path(__file__).resolve().parents[1]
+COMFY_USER = os.environ.get("COMFY_USER", "default")
+USER_DIR = Path(os.environ.get("COMFY_USER_DIR", str(ROOT / "user" / COMFY_USER)))
+SRC_DIR = Path(os.environ.get("COMFY_WORKFLOWS_DIR", str(USER_DIR / "workflows")))
+DST_DIR = Path(os.environ.get("COMFY_WORKFLOWS_API_DIR", str(USER_DIR / "workflows_api")))
+
+
+def _is_api_graph(data: Any) -> bool:
+    """Heuristic to detect Comfy API graph vs UI workflow.
+
+    API: top-level mapping of node-id -> {class_type, inputs}
+    UI: has top-level 'nodes' (list), 'links', positions, etc.
+    """
+    if not isinstance(data, dict):
+        return False
+    if "nodes" in data and isinstance(data.get("nodes"), list):
+        return False
+    # look for at least one node-like entry
+    for k, v in data.items():
+        if isinstance(k, str) and isinstance(v, dict) and "class_type" in v and "inputs" in v:
             return True
     return False
 
